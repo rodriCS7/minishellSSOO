@@ -8,10 +8,26 @@
 #include <signal.h>
 #include <string.h>
 
-int main()
-{
+#define MAX_JOBS 256
+
+typedef struct {
+    int id;
+    pid_t pid;
+    char command[1024];
+    char status[1024];
+} job_t;
+
+int main() {
+
+    // Definimos un array para almacenar los comandos ejecutados en bg
+
+    job_t jobs[MAX_JOBS];
+    int job_count = 0;  // número actual mandatos ejecutados en bg
+    int next_job_id = 1;  // ID para el siguiente mandato
+
     // Ignorar la señal SIGINT en el proceso principal para evitar que el shell termine por interrupciones
     signal(SIGINT, SIG_IGN);
+    signal(SIGQUIT, SIG_IGN);
 
     while (1)
     {
@@ -82,6 +98,7 @@ int main()
                 if (pid == -1)
                 {
                     fprintf(stderr, "Error al crear el proceso hijo\n");
+					// Cerramos los descriptores de fichero en caso de que estuvieran abiertos
                     if (input_fd != -1)
                         close(input_fd);
                     if (output_fd != -1)
@@ -90,8 +107,9 @@ int main()
 
                 if (pid == 0) // Código del hijo
                 {
-                    // Restaurar comportamiento predeterminado para SIGINT
+                    // Restaurar comportamiento predeterminado para SIGINT y SIGQUIT
                     signal(SIGINT, SIG_DFL);
+                    signal(SIGQUIT, SIG_DFL);
 
                     // Redirigir la entrada estándar si es necesario
                     if (input_fd != -1)
@@ -120,7 +138,10 @@ int main()
                     close(input_fd);
                 if (output_fd != -1)
                     close(output_fd);
-                waitpid(pid, NULL, 0);
+                
+                if (line->background == 0) {
+                    waitpid(pid, NULL, 0);
+                }
             }
             else if (line->ncommands == 2) // Si hay dos comandos (pipe simple)
             {
@@ -150,6 +171,8 @@ int main()
                 if (pid1 == 0) // Primer hijo
                 {
                     signal(SIGINT, SIG_DFL);
+                    signal(SIGQUIT, SIG_DFL);
+
 
                     // Redirigir entrada estándar
                     if (input_fd != -1)
@@ -184,6 +207,7 @@ int main()
                 if (pid2 == 0) // Segundo hijo
                 {
                     signal(SIGINT, SIG_DFL);
+                    signal(SIGQUIT, SIG_DFL);
 
                     // Redirigir salida estándar
                     if (output_fd != -1)
@@ -211,8 +235,11 @@ int main()
                 if (output_fd != -1)
                     close(output_fd);
 
-                waitpid(pid1, NULL, 0);
-                waitpid(pid2, NULL, 0);
+                if (line->background == 0) {
+                    waitpid(pid1, NULL, 0);
+                    waitpid(pid2, NULL, 0);
+                }
+                
             }
             else if (line->ncommands > 2) // Para más de dos comandos (pipes múltiples)
             {
@@ -222,10 +249,18 @@ int main()
                 // Crear pipes
                 for (int i = 0; i < numcommands - 1; i++)
                 {
-                    if (pipe(pipefd[i]) == -1)
-                    {
+                    if (pipe(pipefd[i]) == -1) {
+
+                    	if (input_fd != -1) {
+                        	close(input_fd);
+						}
+                    	if (output_fd != -1) {
+                        	close(output_fd);
+						}
                         fprintf(stderr, "Error al crear el pipe\n");
+
                     }
+
                 }
 
                 for (int i = 0; i < numcommands; i++)
@@ -237,11 +272,10 @@ int main()
                         fprintf(stderr, "Error al crear el proceso hijo\n");
                     }
 
-					
-
                     if (pid == 0) // Código del hijo
                     {
                         signal(SIGINT, SIG_DFL);
+                        signal(SIGQUIT, SIG_DFL);
 
 						// Redirigimos la entrada desde fichero para el primer mandato
 						if (i == 0 && input_fd != -1) {
@@ -251,16 +285,18 @@ int main()
                         // Redirigir entrada si no es el primer comando
                         if (i > 0) {
                             dup2(pipefd[i - 1][0], STDIN_FILENO);
+                            close(pipefd[i - 1][0]);
                         }
 
 						if (i == numcommands - 1 && output_fd != -1) {
-							dup2(output_fd, STDIN_FILENO);
+							dup2(output_fd, STDOUT_FILENO);
 						}
 
                         // Redirigir salida si no es el último comando
                         if (i < numcommands - 1)
                         {
                             dup2(pipefd[i][1], STDOUT_FILENO);
+                            close(pipefd[i][1]);
                         }
 
                         // Cerrar extremos innecesarios del pipe
@@ -291,9 +327,11 @@ int main()
 				}
 
                 // Esperar a todos los hijos
-                for (int i = 0; i < numcommands; i++)
-                {
-                    wait(NULL);
+                if (line->background == 0) {
+                    for (int i = 0; i < numcommands; i++)
+                    {
+                        wait(NULL);
+                    }
                 }
             }
         }
