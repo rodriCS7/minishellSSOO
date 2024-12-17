@@ -15,16 +15,22 @@ typedef struct {
     pid_t pid;
     char command[1024];
     char status[1024];
+    int active; // para comprobar si el mandato sigue activo
 } job_t;
 
+job_t jobs[MAX_JOBS];
+int job_count = 0;
+int next_job_id = 1;
+
+void manejador_hijos(int signo);
+
 int main() {
-    job_t jobs[MAX_JOBS];
-    int job_count = 0;
-    int next_job_id = 1;
 
     // Ignoramos las señales SIGINT y SIGQUIT
     signal(SIGINT, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
+
+    signal(SIGCHLD, manejador_hijos);
 
     while (1) {
         printf("msh> ");
@@ -55,7 +61,15 @@ int main() {
                 fprintf(stderr, "Error al cambiar de directorio\n");
             }
 
-        } else {
+        } else if (strcmp(buff, "jobs\n") == 0) {
+            for (int i = 0; i < job_count; i++) {
+                if (jobs[i].active) {
+                    printf("[%d]+ %-7s %s\n", jobs[i].id, jobs[i].status, jobs[i].command);
+                }
+            }
+        }
+        else {
+
             int input_fd = -1;  // Descriptor de ficher para redirección de entrada
             int output_fd = -1; // Descriptor de fichero para redirección de salida
 
@@ -77,6 +91,9 @@ int main() {
 
             int numcommands = line->ncommands;
             int pipefd[numcommands - 1][2];
+
+            // pipe[X][1] --> entrada / escritura
+            // pipe[X][0] --> salida / lectura
 
             // Creamos los pipes necesarios para los comandos
             for (int i = 0; i < numcommands - 1; i++) {
@@ -104,8 +121,10 @@ int main() {
 
                 if (pid == 0) {
                     // Restauramos el funcionamiento de las señales SIGINT y SIGQUIT para los procesos hijos ejecutados en fg
-                    signal(SIGINT, SIG_DFL);
-                    signal(SIGQUIT, SIG_DFL);
+                    if (line->background == 0) {
+                        signal(SIGINT, SIG_DFL);
+                        signal(SIGQUIT, SIG_DFL);
+                    }
 
                     // Si hay redirección de entrada (para el primer mandato)
                     if (input_fd != -1 && i == 0) {
@@ -115,7 +134,7 @@ int main() {
                     // Si no es el primer mandato
                     if (i > 0) {
                         dup2(pipefd[i - 1][0], STDIN_FILENO); // redirigimos la entrada desde el pipe anterior
-                        close(pipefd[i - 1][0]); // cerramos el extremo del pipe anterio
+                        close(pipefd[i - 1][0]); // cerramos el extremo del pipe anterior
                     }
                     // Si hay redirección de salida y es el último mandato
                     if (i == numcommands - 1 && output_fd != -1) {
@@ -136,6 +155,17 @@ int main() {
                     execvp(cmd->filename, cmd->argv);
                     fprintf(stderr, "Error al ejecutar el comando %s\n", cmd->filename);
                     return -1;
+                } else {
+                    if (line->background == 1 && job_count < MAX_JOBS) {
+                        
+                        jobs[job_count].id = next_job_id++; // Asignamos un id al comando actual y lo incrementamos
+                        jobs[job_count].pid = pid; // asignamos el pid del proceso hijo
+                        jobs[job_count].active = 1; // el proceso pasa a estar activo
+                        strncpy(jobs[job_count].command, line->commands[i].filename, sizeof(jobs[job_count].command)); // Asignamos el comando
+                        strncpy(jobs[job_count].status, "Running", sizeof(jobs[job_count].status)); // Estado actual
+                        job_count++;
+                        
+                    }
                 }
             }
 
@@ -157,4 +187,21 @@ int main() {
     }
 
     return 0;
+}
+
+void manejador_hijos(int signo) {
+    pid_t pid;
+    int status;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) { // WNOHANG teste si algún hijo ha terminado
+        for (int i = 0; i < job_count; i++) {
+            if (jobs[i].pid == pid) {
+                jobs[i].active = 0; // El proceso ya no está activo
+                if (WIFEXITED(status)) { // !=0 si el hijo ha terminado
+                    strncpy(jobs[i].status, "Done", sizeof(jobs[i].status));
+                }
+                break;
+            }
+        }
+    }
 }
