@@ -135,6 +135,9 @@ int main() {
                     if (output_fd != -1) {
                         close(output_fd);
                     }
+                    if (error_fd != -1) {
+                        close(error_fd);
+                    }
                     return -1;
                 }
             }
