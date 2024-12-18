@@ -26,6 +26,8 @@ void manejador_hijos(int signo);
 
 void fg(char* index);
 
+int existe_comando(char* cmd);
+
 int main() {
 
     // Ignoramos las señales SIGINT y SIGQUIT
@@ -82,23 +84,34 @@ int main() {
         // MANDATOS QUE NO SON INTERNOS
 
         else {
-
+            
             int input_fd = -1;  // Descriptor de ficher para redirección de entrada
             int output_fd = -1; // Descriptor de fichero para redirección de salida
+            int error_fd = -1; // Descriptor de fichero para redirección de error
 
             // Manejo de redirección de entrada
-            if (line->redirect_input != NULL) {
+            if (line->redirect_input != NULL && strlen(line->redirect_input) > 0) {
                 input_fd = open(line->redirect_input, O_RDONLY);
-                if (input_fd == -1) {
-                    fprintf(stderr, "Error al abrir el archivo de entrada\n");
+                if (input_fd == -1 ) {
+                    fprintf(stderr, "fichero: Error al abrir el archivo de entrada (%s)\n", line->redirect_input);
+                    continue;
                 }
             }
 
             // Manejo de redirección de salida
-            if (line->redirect_output != NULL) {
+            if (line->redirect_output != NULL && strlen(line->redirect_output) > 0) {
                 output_fd = open(line->redirect_output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (output_fd == -1) {
-                    fprintf(stderr, "Error al abrir o crear el archivo de salida\n");
+                    fprintf(stderr, "fichero: Error al abrir o crear el archivo de salida (%s)\n", line->redirect_output);
+                    continue;                
+                }
+            }
+            // Manejo de redirección de error
+            if (line->redirect_error != NULL && strlen(line->redirect_error) > 0) {
+                error_fd = open(line->redirect_error, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (error_fd == -1) {
+                    fprintf(stderr, "fichero: Error al abrir o crear el archivo para redireccón de error (%s)\n", line->redirect_error);
+                    continue;                
                 }
             }
 
@@ -149,10 +162,18 @@ int main() {
                         dup2(pipefd[i - 1][0], STDIN_FILENO); // redirigimos la entrada desde el pipe anterior
                         close(pipefd[i - 1][0]); // cerramos el extremo del pipe anterior
                     }
-                    // Si hay redirección de salida y es el último mandato
-                    if (i == numcommands - 1 && output_fd != -1) {
-                        dup2(output_fd, STDOUT_FILENO); // redirigimos la salida al archivo
-                        close(output_fd); // cerramos el descriptor de fichero
+                    // Si es el último mandato comprobamos si hay redireccion de salida o error
+                    if (i == numcommands - 1) {
+
+                        if (output_fd != -1) {
+                            dup2(output_fd, STDOUT_FILENO); // redirigimos la salida al archivo
+                            close(output_fd); // cerramos el descriptor de fichero
+                        }
+                        if (error_fd != -1) {
+                            dup2(error_fd, STDERR_FILENO); // redirigimos STDERR al archivo
+                            close(error_fd); // Cerramos el descriptor de fichero
+                        }
+
                     } else if (i < numcommands - 1) { // Si no hay redirección de salida
                         dup2(pipefd[i][1], STDOUT_FILENO); // redirigimos la salida al extremo de escritura del pipe actual
                         close(pipefd[i][1]); // cerramos el descriptor de fichero
@@ -165,9 +186,16 @@ int main() {
                     }
 
                     tcommand *cmd = &line->commands[i];
+
+                    if (!existe_comando(cmd->filename)) {
+                        printf("%s: No se encuentra el mandato\n", cmd->argv[0]);
+                        return -1;
+                    }       
+
                     execvp(cmd->filename, cmd->argv);
                     fprintf(stderr, "Error al ejecutar el comando %s\n", cmd->filename);
                     return -1;
+
                 } else {
                     if (line->background == 1 && job_count < MAX_JOBS) {
                         
@@ -187,8 +215,15 @@ int main() {
                 close(pipefd[i][0]);
                 close(pipefd[i][1]);
             }
-            if (input_fd != -1) close(input_fd);
-            if (output_fd != -1) close(output_fd);
+            if (input_fd != -1) {
+                close(input_fd);
+            }
+            if (output_fd != -1) {
+                close(output_fd);
+            }
+            if (error_fd != -1) {
+                close(error_fd);
+            }
 
             // Esperamos a los procesos hijos si se ha ejecutado en fg
             if (line->background == 0) {
@@ -260,4 +295,11 @@ void fg(char* index) {
 
     jobs[job_id].active = 0;
     strncpy(job->status, "Done", sizeof(job->status)); 
+}
+
+int existe_comando(char* cmd) {
+    if (access(cmd, F_OK) != 0) {
+        return 0;
+    }
+    return 1;
 }
