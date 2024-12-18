@@ -89,30 +89,31 @@ int main() {
             int output_fd = -1; // Descriptor de fichero para redirección de salida
             int error_fd = -1; // Descriptor de fichero para redirección de error
 
+            if (line != NULL) {
             // Manejo de redirección de entrada
-            if (line->redirect_input != NULL && strlen(line->redirect_input) > 0) {
+            if (line->redirect_input) {
                 input_fd = open(line->redirect_input, O_RDONLY);
                 if (input_fd == -1 ) {
                     fprintf(stderr, "fichero: Error al abrir el archivo de entrada (%s)\n", line->redirect_input);
-                    continue;
+                    return -1;
                 }
             }
 
             // Manejo de redirección de salida
-            if (line->redirect_output != NULL && strlen(line->redirect_output) > 0) {
+            if (line->redirect_output) {
                 output_fd = open(line->redirect_output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (output_fd == -1) {
                     fprintf(stderr, "fichero: Error al abrir o crear el archivo de salida (%s)\n", line->redirect_output);
-                    continue;                
+                    return -1;                
                 }
             }
             
             // Manejo de redirección de error
-            if (line->redirect_error != NULL && strlen(line->redirect_error) > 0) {
+            if (line->redirect_error) {
                 error_fd = open(line->redirect_error, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (error_fd == -1) {
                     fprintf(stderr, "fichero: Error al abrir o crear el archivo para redireccón de error (%s)\n", line->redirect_error);
-                    continue;                
+                    return -1;                
                 }
             }
 
@@ -237,6 +238,7 @@ int main() {
             }
         }
     }
+    }
     return 0;
 }
 
@@ -284,6 +286,7 @@ void fg(char* index) {
             }
         }
     }
+
 
     if (!existe || target_index == -1) {
         fprintf(stderr, "fg: No existe un trabajo activo con ese ID\n");
