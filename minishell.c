@@ -26,6 +26,7 @@ void manejador_hijos(int sig); // Declaración del manejador de SIGCHILD
 
 void fg(char* index); // Función para manejar el paso de comandos de bg a fg
 
+
 int main() {
 
     // Ignoramos las señales SIGINT y SIGQUIT
@@ -90,6 +91,7 @@ int main() {
 
             // Manejo de redirección de entrada
             if (line->redirect_input != NULL && strlen(line->redirect_input) > 0) {
+                printf("%s", line->redirect_input);
                 input_fd = open(line->redirect_input, O_RDONLY);
                 if (input_fd == -1 ) {
                     fprintf(stderr, "fichero: Error al abrir el archivo de entrada (%s)\n", line->redirect_input);
@@ -99,6 +101,7 @@ int main() {
 
             // Manejo de redirección de salida
             if (line->redirect_output != NULL && strlen(line->redirect_output) > 0) {
+                printf("%s", line->redirect_output);
                 output_fd = open(line->redirect_output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (output_fd == -1) {
                     fprintf(stderr, "fichero: Error al abrir o crear el archivo de salida (%s)\n", line->redirect_output);
@@ -108,6 +111,7 @@ int main() {
             
             // Manejo de redirección de error
             if (line->redirect_error != NULL && strlen(line->redirect_error) > 0) {
+                printf("%s", line->redirect_error);
                 error_fd = open(line->redirect_error, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (error_fd == -1) {
                     fprintf(stderr, "fichero: Error al abrir o crear el archivo para redireccón de error (%s)\n", line->redirect_error);
