@@ -299,7 +299,7 @@ void manejador_hijos(int signo) {
 void fg(char* indice) {
 
     int id_job = -1;
-    int indice_objetivo = -1;
+    int indice_job = -1;
     int existe = 0;
 
     // Si se proporciona un ID de job, buscamos el job correspondiente
@@ -307,7 +307,7 @@ void fg(char* indice) {
         id_job = atoi(indice);
         for (int i = 0; i < contador_jobs; i++) {
             if (jobs[i].id == id_job && jobs[i].activo) {
-                indice_objetivo = i;
+                indice_job = i;
                 existe = 1;
                 break;
             }
@@ -316,7 +316,7 @@ void fg(char* indice) {
         // Si no se proporciona ID, usamos el último job activo
         for (int i = 0; i < contador_jobs; i++) {
             if (jobs[i].activo) {
-                indice_objetivo = i;
+                indice_job = i;
                 id_job = jobs[i].id;
                 existe = 1;
                 break;
@@ -324,12 +324,12 @@ void fg(char* indice) {
         }
     }
 
-    if (!existe || indice_objetivo == -1) {
+    if (!existe || indice_job == -1) {
         fprintf(stderr, "fg: No existe un job activo con ese ID\n");
         return;
     }
 
-    job_t *job = &jobs[indice_objetivo];
+    job_t *job = &jobs[indice_job];
     printf("Reanudando proceso [%d] %s\n", job->id, job->comando);
 
     waitpid(jobs[id_job].pid, NULL, 0);
