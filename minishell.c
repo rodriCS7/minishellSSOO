@@ -26,8 +26,6 @@ void manejador_hijos(int sig); // Declaración del manejador de SIGCHILD
 
 void fg(char* index); // Función para manejar el paso de comandos de bg a fg
 
-int existe_comando(char* cmd); // Verificar la existencia de un comando
-
 int main() {
 
     // Ignoramos las señales SIGINT y SIGQUIT
@@ -187,7 +185,8 @@ int main() {
 
                     tcommand *cmd = &line->commands[i];
 
-                    if (!existe_comando(cmd->filename)) {
+                    // El parser devuelve NULL si no existe el mandato(filename)
+                    if (cmd->filename == NULL) {
                         printf("%s: No se encuentra el mandato\n", cmd->argv[0]);
                         return -1;
                     }       
@@ -297,9 +296,3 @@ void fg(char* index) {
     strncpy(job->status, "Done", sizeof(job->status)); 
 }
 
-int existe_comando(char* cmd) {
-    if (access(cmd, F_OK) != 0) {
-        return 0;
-    }
-    return 1;
-}
