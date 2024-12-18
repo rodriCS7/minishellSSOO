@@ -75,12 +75,6 @@ int main() {
             break;
         }
 
-        // Eliminar espacios y saltos de línea del comando
-        char *command_trimmed = strtok(buff, "\n");
-        if (command_trimmed == NULL || strlen(command_trimmed) == 0) {
-            continue; // Comando vacío
-        }
-
         tline *line = tokenize(buff);
         if (line == NULL) continue;
 
@@ -157,6 +151,10 @@ int main() {
                 if (line->background) {
                     // Realocar dinámicamente la lista de trabajos
                     jobs = realloc(jobs, (job_count + 1) * sizeof(job_t));
+                    if (jobs == NULL) {
+                        fprintf(stderr, "Error al realocar memoria para trabajos\n");
+                        exit(1);
+                    }
                     jobs[job_count].id = next_job_id++;
                     jobs[job_count].pid = pid;
                     jobs[job_count].active = 1;
