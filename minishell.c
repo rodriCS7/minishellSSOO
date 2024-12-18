@@ -24,6 +24,8 @@ int next_job_id = 1;
 
 void manejador_hijos(int signo);
 
+void fg(char* index);
+
 int main() {
 
     // Ignoramos las señales SIGINT y SIGQUIT
@@ -46,6 +48,8 @@ int main() {
         tline *line;
         line  = tokenize(buff);
 
+        // MANDATOS INTERNOS
+        //CD
         if (strcmp(buff, "cd\n") == 0 || strncmp(buff, "cd ", 3) == 0) {
 
             char *dir = strtok(buff + 3, "\n"); // Extraer el directorio del argumento
@@ -61,13 +65,22 @@ int main() {
                 fprintf(stderr, "Error al cambiar de directorio\n");
             }
 
+        // JOBS
         } else if (strcmp(buff, "jobs\n") == 0) {
             for (int i = 0; i < job_count; i++) {
                 if (jobs[i].active) {
                     printf("[%d]+ %-7s %s\n", jobs[i].id, jobs[i].status, jobs[i].command);
                 }
             }
+        // FG
+        } else if (strcmp(buff, "fg\n") == 0 || strncmp(buff, "fg ", 2) == 0) {
+
+            char *index = strtok(buff + 3, "\n");
+            fg(index);
         }
+
+        // MANDATOS QUE NO SON INTERNOS
+
         else {
 
             int input_fd = -1;  // Descriptor de ficher para redirección de entrada
@@ -193,7 +206,7 @@ void manejador_hijos(int signo) {
     pid_t pid;
     int status;
 
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) { // WNOHANG teste si algún hijo ha terminado
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) { // WNOHANG testea si algún hijo ha terminado
         for (int i = 0; i < job_count; i++) {
             if (jobs[i].pid == pid) {
                 jobs[i].active = 0; // El proceso ya no está activo
@@ -204,4 +217,47 @@ void manejador_hijos(int signo) {
             }
         }
     }
+}
+
+void fg(char* index) {
+
+    int job_id = -1;
+    int target_index = -1;
+    int existe = 0;
+
+    // Si se proporciona un ID de job, buscamos el job correspondiente
+    if (index != NULL) {
+        job_id = atoi(index);
+        for (int i = 0; i < job_count; i++) {
+            if (jobs[i].id == job_id && jobs[i].active) {
+                target_index = i;
+                existe = 1;
+                break;
+            }
+        }
+    } else {
+        // Si no se proporciona ID, usamos el último trabajo activo
+        for (int i = 0; i < job_count; i++) {
+            if (jobs[i].active) {
+                target_index = i;
+                job_id = jobs[i].id;
+                existe = 1;
+                break;
+            }
+        }
+    }
+
+    if (!existe || target_index == -1) {
+        fprintf(stderr, "fg: No existe un trabajo activo con ese ID\n");
+        return;
+    }
+
+
+    job_t *job = &jobs[target_index];
+    printf("Reanudando proceso [%d] %s\n", job->id, job->command);
+
+    waitpid(jobs[job_id].pid, NULL, 0);
+
+    jobs[job_id].active = 0;
+    strncpy(job->status, "Done", sizeof(job->status)); 
 }
