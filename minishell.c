@@ -198,7 +198,7 @@ int main() {
                         return -1;
                     }       
 
-                    execvp(cmd->filename, cmd->argv);
+                    execv(cmd->filename, cmd->argv);
                     fprintf(stderr, "Error al ejecutar el comando %s\n", cmd->filename);
                     return -1;
 
