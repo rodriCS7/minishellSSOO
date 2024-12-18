@@ -118,8 +118,40 @@ int main() {
             }
 
             int numcommands = line->ncommands;
-            int pipefd[numcommands - 1][2];
 
+            // int pipefd[numcommands - 1][2];
+            // Pipes con memoria dinámica
+
+            int **pipefd = malloc((numcommands - 1) * sizeof(int *));
+            if (pipefd == NULL) {
+                fprintf(stderr, "Error al reservar memoria para los pipes\n");
+                return -1;
+            }
+
+            // Reservamos memoria para cada pipe (dos enteros: lectura y escritura)
+            for (int i = 0; i < numcommands - 1; i++) {
+                pipefd[i] = malloc(2 * sizeof(int));
+                if (pipefd[i] == NULL) {
+                    fprintf(stderr, "Error al reservar memoria para el pipe %d\n", i);
+                    // Liberamos la memoria previamente asignada
+                    for (int j = 0; j < i; j++) {
+                        free(pipefd[j]);
+                    }
+                    free(pipefd);
+                    return -1;
+                }
+
+                // Crea el pipe
+                if (pipe(pipefd[i]) == -1) {
+                    fprintf(stderr, "Error al crear el pipe %d\n", i);
+                    // Liberamos la memoria asignada
+                    for (int j = 0; j <= i; j++) {
+                        free(pipefd[j]);
+                    }
+                    free(pipefd);
+                    return -1;
+                }
+            }
             // pipe[X][1] --> entrada / escritura
             // pipe[X][0] --> salida / lectura
 
@@ -229,6 +261,12 @@ int main() {
             if (error_fd != -1) {
                 close(error_fd);
             }
+
+            // Liberamos la memoria de la matriz dinámica de pipes
+            for (int i = 0; i < numcommands - 1; i++) {
+                free(pipefd[i]); // Libera cada pipe
+            }
+            free(pipefd); // Libera el arreglo principal
 
             // Esperamos a los procesos hijos si se ha ejecutado en fg
             if (line->background == 0) {
