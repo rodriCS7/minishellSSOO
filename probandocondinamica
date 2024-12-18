@@ -1,6 +1,3 @@
-Claro, aquí tienes el código completo modificado para que el número de trabajos sea dinámico, junto con algunas correcciones y mejoras:
-
-```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
