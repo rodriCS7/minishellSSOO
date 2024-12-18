@@ -22,11 +22,11 @@ job_t jobs[MAX_JOBS];
 int job_count = 0;
 int next_job_id = 1;
 
-void manejador_hijos(int signo);
+void manejador_hijos(int sig); // Declaración del manejador de SIGCHILD
 
-void fg(char* index);
+void fg(char* index); // Función para manejar el paso de comandos de bg a fg
 
-int existe_comando(char* cmd);
+int existe_comando(char* cmd); // Verificar la existencia de un comando
 
 int main() {
 
@@ -34,6 +34,7 @@ int main() {
     signal(SIGINT, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
 
+    // Añadimos un manejador para cuando se reciba la señal SIGCHLD (terminacion de un hijo)
     signal(SIGCHLD, manejador_hijos);
 
     while (1) {
@@ -106,6 +107,7 @@ int main() {
                     continue;                
                 }
             }
+            
             // Manejo de redirección de error
             if (line->redirect_error != NULL && strlen(line->redirect_error) > 0) {
                 error_fd = open(line->redirect_error, O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -123,7 +125,6 @@ int main() {
 
             // Creamos los pipes necesarios para los comandos
             for (int i = 0; i < numcommands - 1; i++) {
-
                 if (pipe(pipefd[i]) == -1) {
                     fprintf(stderr, "Error al crear el pipe\n");
                     if (input_fd != -1) {
@@ -164,7 +165,6 @@ int main() {
                     }
                     // Si es el último mandato comprobamos si hay redireccion de salida o error
                     if (i == numcommands - 1) {
-
                         if (output_fd != -1) {
                             dup2(output_fd, STDOUT_FILENO); // redirigimos la salida al archivo
                             close(output_fd); // cerramos el descriptor de fichero
@@ -196,7 +196,8 @@ int main() {
                     fprintf(stderr, "Error al ejecutar el comando %s\n", cmd->filename);
                     return -1;
 
-                } else {
+                } else { // No somos el hijo
+                    // Añadimos el comando al array de jobs
                     if (line->background == 1 && job_count < MAX_JOBS) {
                         
                         jobs[job_count].id = next_job_id++; // Asignamos un id al comando actual y lo incrementamos
@@ -233,7 +234,6 @@ int main() {
             }
         }
     }
-
     return 0;
 }
 
