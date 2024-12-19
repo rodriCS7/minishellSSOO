@@ -102,6 +102,9 @@ int main() {
                 salida_fd = open(linea->redirect_output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (salida_fd == -1) {
                     fprintf(stderr, "Error al abrir o crear el archivo de salida (%s)\n", linea->redirect_output);
+                    if (entrada_fd != -1) {
+                        close(entrada_fd);
+                    }
                     return -1;                
                 }
             }
@@ -111,6 +114,12 @@ int main() {
                 error_fd = open(linea->redirect_error, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 if (error_fd == -1) {
                     fprintf(stderr, "Error al abrir o crear el archivo para redirección de error (%s)\n", linea->redirect_error);
+                    if (entrada_fd != -1) {
+                        close(entrada_fd);
+                    }
+                    if (salida_fd != -1) {
+                        close(salida_fd);
+                    }
                     return -1;                
                 }
             }
@@ -156,7 +165,6 @@ int main() {
                     if (error_fd != -1) {
                         close(error_fd);
                     }
-                    return -1;
                     return -1;
                 }
             }
