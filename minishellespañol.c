@@ -19,7 +19,7 @@ typedef struct {
     int activo; // Indica si el job sigue activo
 } job_t;
 
-job_t jobs[MAX_JOBS]; // Arreglo que almacena los jobs activos
+job_t jobs[MAX_JOBS]; // Array que almacena los jobs activos
 int contador_jobs = 0; // Contador de jobs actuales
 int siguiente_id_job = 1; // ID que se asignará al próximo job
 
@@ -76,7 +76,6 @@ int main() {
             }
         // Mover un job a foreground (fg)
         } else if (strcmp(buffer, "fg\n") == 0 || strncmp(buffer, "fg ", 2) == 0) {
-
             char *indice = strtok(buffer + 3, "\n");
             fg(indice);
         }
@@ -148,16 +147,6 @@ int main() {
                         free(pipefd[j]);
                     }
                     free(pipefd);
-                    return -1;
-                }
-            }
-            // pipe[X][1] --> entrada / escritura
-            // pipe[X][0] --> salida / lectura
-
-            // Creamos los pipes necesarios para los comandos
-            for (int i = 0; i < num_comandos - 1; i++) {
-                if (pipe(pipefd[i]) == -1) {
-                    fprintf(stderr, "Error al crear el pipe\n");
                     if (entrada_fd != -1) {
                         close(entrada_fd);
                     }
@@ -168,8 +157,11 @@ int main() {
                         close(error_fd);
                     }
                     return -1;
+                    return -1;
                 }
             }
+            // pipe[X][1] --> entrada / escritura
+            // pipe[X][0] --> salida / lectura
 
             // Ejecutamos los comandos en los procesos hijos
             for (int i = 0; i < num_comandos; i++) {
